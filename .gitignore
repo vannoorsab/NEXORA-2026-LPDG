@@ -1,7 +1,5 @@
-# Ignore data folder
 data/
 
-# Python
 __pycache__/
 *.py[cod]
 *$py.class
@@ -11,12 +9,19 @@ __pycache__/
 dist/
 build/
 
-# IDE
+.venv/
+venv/
+env/
+
+.env
+.env.*
+!.env.example
+
+
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# OS
 .DS_Store
 Thumbs.db

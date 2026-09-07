@@ -69,3 +69,44 @@ def get_predictions(week_start: str):
             status_code=404,
             detail="Required prediction data was not found.",
         ) from exc
+
+@app.get("/gateways/{gateway_id}/why")
+def get_gateway_explanation(
+    gateway_id: str,
+    week: str,
+):
+    """
+    Explain why a gateway was ranked where it was.
+    """
+
+    try:
+        prediction = prediction_service.get_gateway_explanation(
+            gateway_id=gateway_id,
+            week_start=week,
+        )
+
+        return {
+            "week_start": week,
+            "gateway_id": gateway_id,
+            "rank": prediction["rank"],
+            "score": prediction["score"],
+            "reason": prediction["reason"],
+        }
+
+    except KeyError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail=str(exc),
+        ) from exc
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        ) from exc
+
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail="Required prediction data was not found.",
+        ) from exc

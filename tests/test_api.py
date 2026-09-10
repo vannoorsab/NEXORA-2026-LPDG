@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -71,8 +73,29 @@ def test_gateway_why_endpoint():
 
 
 def test_gateway_why_returns_404_for_unknown_gateway():
-    response = client.get(
-        "/gateways/UNKNOWN-GATEWAY/why?week=2026-02-02"
-    )
+    response = client.get("/gateways/UNKNOWN-GATEWAY/why?week=2026-02-02")
 
     assert response.status_code == 404
+
+
+def test_run_endpoint():
+    response = client.post("/run")
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["status"] == "success"
+    assert data["rows"] == 120
+    assert data["weeks"] == 8
+
+
+def test_run_creates_predictions_file():
+    response = client.post("/run")
+
+    assert response.status_code == 200
+
+    predictions_file = response.json()["output"]
+
+    assert Path(predictions_file).exists()
+

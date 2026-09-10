@@ -25,6 +25,7 @@ ranking_strategy = ThreeSigmaRanker()
 prediction_service = PredictionService(
     data_dir=DATA_DIR,
     ranking_strategy=ranking_strategy,
+    output_path=PROJECT_ROOT / "predictions.csv",
 )
 
 
@@ -70,6 +71,7 @@ def get_predictions(week_start: str):
             detail="Required prediction data was not found.",
         ) from exc
 
+
 @app.get("/gateways/{gateway_id}/why")
 def get_gateway_explanation(
     gateway_id: str,
@@ -109,4 +111,23 @@ def get_gateway_explanation(
         raise HTTPException(
             status_code=404,
             detail="Required prediction data was not found.",
+        ) from exc
+
+
+@app.post("/run")
+def run_predictions():
+    """Re-run the prediction process using the data in data/."""
+    try:
+        return prediction_service.run_predictions()
+
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail=str(exc),
+        ) from exc
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Prediction run failed: {exc}",
         ) from exc

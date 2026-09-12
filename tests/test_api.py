@@ -149,3 +149,21 @@ def test_run_returns_clear_error_for_missing_telemetry(
         response.json()["detail"]
         == "Telemetry is missing required column: ts"
     )
+
+
+def test_run_returns_clear_error_for_empty_telemetry(monkeypatch):
+    from app.main import prediction_service
+
+    def fake_rank_latest(data_dir):
+        raise ValueError("Telemetry file contains no rows.")
+
+    monkeypatch.setattr(
+        prediction_service.ranking_strategy,
+        "rank_latest",
+        fake_rank_latest,
+    )
+
+    response = client.post("/run")
+
+    assert response.status_code == 400
+    assert "no rows" in response.json()["detail"]

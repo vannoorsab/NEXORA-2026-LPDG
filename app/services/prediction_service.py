@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from typing import Any
+from app.services.telemetry_validator import validate_telemetry
 
 import baseline_3sigma
 
@@ -79,6 +80,7 @@ class PredictionService:
             raise FileNotFoundError(
                 f"Telemetry directory does not exist: {telemetry_dir}"
             )
+        validate_telemetry(self.data_dir)
 
         predictions = self.ranking_strategy.rank_latest(data_dir=self.data_dir)
         if not predictions:

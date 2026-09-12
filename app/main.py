@@ -79,13 +79,23 @@ def get_predictions(week_start: str):
 
 
 @app.get("/gateways/{gateway_id}/why")
-def get_gateway_explanation(
-    gateway_id: str,
-    week: str,
-):
-    """
-    Explain why a gateway was ranked where it was.
-    """
+def get_gateway_explanation(gateway_id: str, week: str):
+    gateway_id = gateway_id.strip()
+    week = week.strip()
+
+    if not gateway_id:
+        raise HTTPException(
+            status_code=400,
+            detail="gateway_id must not be empty.",
+        )
+
+    try:
+        dt.date.fromisoformat(week)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail="week must be a valid date in YYYY-MM-DD format.",
+        ) from exc
 
     try:
         prediction = prediction_service.get_gateway_explanation(
@@ -122,13 +132,25 @@ def get_gateway_explanation(
 
 @app.post("/run")
 def run_predictions():
-    """Re-run the prediction process using the data in data/."""
     try:
-        return prediction_service.run_latest_predictions()
+        result = prediction_service.run_latest_predictions()
+        return result
 
     except FileNotFoundError as exc:
         raise HTTPException(
             status_code=404,
+            detail=str(exc),
+        ) from exc
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        ) from exc
+
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=400,
             detail=str(exc),
         ) from exc
 

@@ -115,3 +115,37 @@ def test_predictions_reject_invalid_date():
 
     assert response.status_code == 400
     assert "YYYY-MM-DD" in response.json()["detail"]
+
+
+def test_gateway_why_rejects_empty_gateway():
+    response = client.get(
+        "/gateways/%20/why?week=2026-03-30"
+    )
+
+    assert response.status_code == 400
+    assert "gateway_id must not be empty" in response.json()["detail"]
+
+
+def test_run_returns_clear_error_for_missing_telemetry(
+    monkeypatch,
+):
+    from app.main import prediction_service
+
+    def fake_rank_latest(data_dir):
+        raise ValueError(
+            "Telemetry is missing required column: ts"
+        )
+
+    monkeypatch.setattr(
+        prediction_service.ranking_strategy,
+        "rank_latest",
+        fake_rank_latest,
+    )
+
+    response = client.post("/run")
+
+    assert response.status_code == 400
+    assert (
+        response.json()["detail"]
+        == "Telemetry is missing required column: ts"
+    )

@@ -10,6 +10,10 @@ class ThreeSigmaRanker(RankingStrategy):
     """Rank gateways using the existing 3-sigma baseline."""
 
     def _load_baseline(self, data_dir: Path):
+        """
+        Load the telemetry dataset and validate the columns required
+        by the prediction pipeline.
+        """
         project_root = Path(__file__).resolve().parents[2]
 
         if str(project_root) not in sys.path:
@@ -17,7 +21,42 @@ class ThreeSigmaRanker(RankingStrategy):
 
         import baseline_3sigma
 
-        return baseline_3sigma, baseline_3sigma.load(data_dir)
+        try:
+            frame = baseline_3sigma.load(data_dir)
+        except KeyError as exc:
+            missing_column = str(exc).strip("'")
+            raise ValueError(
+                f"Telemetry is missing required column: {missing_column}"
+            ) from exc
+
+        if frame.empty:
+            raise ValueError(
+                "Telemetry data is empty. No predictions can be generated."
+            )
+
+        required_columns = {
+            "gateway_id",
+            "offline_duration_sec",
+            "disconnection_cnt",
+            "reboot_cnt",
+            "ts",
+        }
+
+        missing_columns = sorted(required_columns - set(frame.columns))
+
+        if missing_columns:
+            raise ValueError(
+                "Telemetry is missing required columns: "
+                + ", ".join(missing_columns)
+            )
+
+        if frame["gateway_id"].isna().all():
+            raise ValueError("Telemetry contains no usable gateway IDs.")
+
+        if frame["ts"].isna().all():
+            raise ValueError("Telemetry contains no usable timestamps.")
+
+        return baseline_3sigma, frame
 
     def _build_week_predictions(
         self,

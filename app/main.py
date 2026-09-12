@@ -1,3 +1,4 @@
+import datetime as dt
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -46,9 +47,14 @@ def health():
 
 @app.get("/predictions/{week_start}")
 def get_predictions(week_start: str):
-    """
-    Return the top 15 gateway predictions for a prediction week.
-    """
+    # Validate date format
+    try:
+        dt.date.fromisoformat(week_start)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail="week_start must be a valid date in YYYY-MM-DD format.",
+        ) from exc
 
     try:
         predictions = prediction_service.get_predictions(week_start)
@@ -118,7 +124,7 @@ def get_gateway_explanation(
 def run_predictions():
     """Re-run the prediction process using the data in data/."""
     try:
-        return prediction_service.run_predictions()
+        return prediction_service.run_latest_predictions()
 
     except FileNotFoundError as exc:
         raise HTTPException(

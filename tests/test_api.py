@@ -86,16 +86,32 @@ def test_run_endpoint():
     data = response.json()
 
     assert data["status"] == "success"
-    assert data["rows"] == 120
-    assert data["weeks"] == 8
+    assert data["rows"] == 15
+    assert data["week_start"] == "2026-03-30"
+    assert "runtime_predictions.csv" in data["output"]
 
 
-def test_run_creates_predictions_file():
+def test_run_creates_runtime_predictions_file():
     response = client.post("/run")
 
     assert response.status_code == 200
 
     predictions_file = response.json()["output"]
 
-    assert Path(predictions_file).exists()
+    from pathlib import Path
 
+    assert Path(predictions_file).exists()
+    assert Path(predictions_file).name == "runtime_predictions.csv"
+
+def test_predictions_reject_invalid_week_format():
+    response = client.get("/predictions/not-a-date")
+
+    assert response.status_code == 400
+    assert "YYYY-MM-DD" in response.json()["detail"]
+
+
+def test_predictions_reject_invalid_date():
+    response = client.get("/predictions/2026-99-99")
+
+    assert response.status_code == 400
+    assert "YYYY-MM-DD" in response.json()["detail"]

@@ -81,7 +81,6 @@ def get_predictions(week_start: str):
 @app.get("/gateways/{gateway_id}/why")
 def get_gateway_explanation(gateway_id: str, week: str):
     gateway_id = gateway_id.strip()
-    week = week.strip()
 
     if not gateway_id:
         raise HTTPException(

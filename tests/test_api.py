@@ -3,6 +3,11 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.ranking import ThreeSigmaRanker
+
+
+DATA_DIR = Path(__file__).resolve().parents[1] / "data"
+
 
 
 client = TestClient(app)
@@ -123,7 +128,15 @@ def test_gateway_why_rejects_empty_gateway():
     )
 
     assert response.status_code == 400
-    assert "gateway_id must not be empty" in response.json()["detail"]
+    assert "must not be empty" in response.json()["detail"]
+
+
+def test_gateway_why_returns_404_for_unknown_gateway_latest_week():
+    response = client.get(
+        "/gateways/UNKNOWN-GATEWAY/why?week=2026-03-30"
+    )
+
+    assert response.status_code == 404
 
 
 def test_run_returns_clear_error_for_missing_telemetry(
@@ -167,3 +180,35 @@ def test_run_returns_clear_error_for_empty_telemetry(monkeypatch):
 
     assert response.status_code == 400
     assert "no rows" in response.json()["detail"]
+
+def test_gateway_why_rejects_empty_gateway():
+    response = client.get(
+        "/gateways/%20/why?week=2026-03-30"
+    )
+
+    assert response.status_code == 400
+    assert "must not be empty" in response.json()["detail"]
+
+
+def test_gateway_why_returns_404_for_unknown_gateway():
+    response = client.get(
+        "/gateways/UNKNOWN-GATEWAY/why?week=2026-03-30"
+    )
+
+    assert response.status_code == 404
+
+
+def test_ranking_is_deterministic():
+    ranker = ThreeSigmaRanker()
+
+    first = ranker.rank(
+        data_dir=DATA_DIR,
+        week_start="2026-02-02",
+    )
+
+    second = ranker.rank(
+        data_dir=DATA_DIR,
+        week_start="2026-02-02",
+    )
+
+    assert first == second

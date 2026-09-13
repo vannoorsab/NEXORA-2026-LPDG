@@ -66,6 +66,11 @@ class ThreeSigmaRanker(RankingStrategy):
     ) -> list[dict[str, Any]]:
         monday = dt.date.fromisoformat(week_start)
         ranked = baseline_3sigma.rank_week(frame, monday)
+        ranked = ranked.sort_values(
+            by=["flagged_hours", "gateway_id"],
+            ascending=[False, True],
+            kind="mergesort",
+        ).reset_index(drop=True)
 
         if len(ranked) < baseline_3sigma.VISITS_PER_WEEK:
             raise ValueError(

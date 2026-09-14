@@ -117,6 +117,105 @@ I could have relied on DataFrame ordering, used a random tie-break, or used anot
 
 Relying on implicit ordering can produce different results across environments or library versions. A gateway-ID tie-break is simple, reproducible, and does not require additional assumptions about the data.
 
+
+### Decision 6: Define what "needs a visit" means
+
+#### What I chose
+
+For this solution, "needs a visit" means that the gateway currently shows abnormal operational behaviour according to the selected ranking signals and therefore deserves investigation by the field team.
+
+This is a prioritisation decision, not a claim that the gateway will definitely fail.
+
+The 3-Sigma ranking identifies gateways whose recent behaviour is unusual compared with their own historical behaviour. The top 15 are therefore the gateways I would prioritise for field investigation for that week.
+
+#### Alternative considered
+
+I could have interpreted "needs a visit" as "will definitely have a confirmed fault" and attempted to train the ranking directly against historical field-visit outcomes.
+
+#### Why I rejected the alternative
+
+Historical field visits are not a complete ground-truth label for future faults. A visit may result in "Kein Fehler gefunden", while an unvisited gateway does not necessarily mean that it had no fault.
+
+Using historical visits as a direct supervised label would therefore introduce assumptions that the dataset does not support.
+
+I chose a more defensible interpretation: the ranking identifies gateways with abnormal current behaviour that warrants investigation.
+
+This also keeps the distinction clear between:
+
+- anomaly detection;
+- visit prioritisation; and
+- confirmed field faults.
+
+### Decision 7: Treat incomplete telemetry as an information-quality issue
+
+#### What I chose
+
+I do not automatically interpret missing telemetry as evidence of a gateway fault.
+
+The application validates that telemetry files exist, contain the required fields, and contain usable gateway IDs and timestamps. The ranking then operates on the telemetry that is actually available.
+
+If telemetry is incomplete, the result should be interpreted with lower confidence because the absence of observations may itself be a data-quality problem.
+
+#### Alternative considered
+
+I could have treated every period of missing telemetry as a strong fault signal and automatically increased the gateway's ranking.
+
+#### Why I rejected the alternative
+
+Missing data and gateway failure are different possible explanations.
+
+Forcing missing telemetry into the fault score could cause the system to prioritise gateways because of a data pipeline problem rather than because of an actual gateway condition.
+
+I therefore chose not to silently convert missingness into a fault signal.
+
+#### Consequence
+
+This approach may miss a genuine fault when telemetry is unavailable, but it avoids making an unsupported claim that missing data always represents a gateway failure.
+
+The limitation is documented rather than hidden.
+
+### Decision 8: Use the 15-slot capacity as the operational decision boundary
+
+#### What I chose
+
+The supplied ranking produces an ordered priority score rather than a
+binary "fault / no fault" decision. I therefore use the fixed weekly
+capacity of 15 field visits as the operational decision boundary.
+
+For each prediction week, the 15 highest-ranked gateways are selected
+for investigation.
+
+The cost model reinforces the importance of ranking the most urgent
+gateways first:
+
+- Each dispatched visit costs €380.
+- A faulty gateway that remains unvisited costs €600 per week.
+- Because exactly 15 visits are mandatory each week, the visit cost is
+  fixed at 15 × 8 × €380 = €45,600 for every valid submission.
+- Therefore, the meaningful optimisation is to use those 15 slots on
+  gateways that are most likely to warrant intervention, preferably
+  early in a continuing fault episode.
+
+#### Alternative considered
+
+I could have introduced a separate binary threshold and selected only
+gateways whose score exceeded that threshold.
+
+#### Why I rejected the alternative
+
+The submission format requires exactly 15 gateways per week, so a
+binary threshold alone cannot determine the final dispatch list.
+Different weeks could contain fewer or more than 15 gateways above the
+threshold.
+
+I therefore keep the ranking as the decision mechanism and use the
+top-15 capacity constraint to convert the continuous anomaly score into
+an operational visit list.
+
+This also avoids presenting the 3-Sigma score as a calibrated failure
+probability. The score is used for ordering and prioritisation, not as
+a guarantee that a gateway will fail.
+
 ## Part 2: Software Development
 
 ### Selected area
@@ -187,7 +286,52 @@ I could have served only a pre-generated result, required a week parameter for e
 
 The purpose of `/run` is to regenerate rankings when new telemetry becomes available. A startup-only load would become stale while the service was running, so `/run` explicitly re-reads the current data.
 
-### Decision 4: Support new data without restarting the API
+### Decision 4: Make repeated `/run` calls safe and current
+
+#### What I chose
+
+Each `/run` call starts a new prediction operation using the telemetry currently available on disk.
+
+The service does not retain the previous telemetry dataset as the source of truth for future runs.
+
+If `/run` is called again without any data changes, the ranking remains deterministic and produces the same result.
+
+If new telemetry is added, the next `/run` evaluates the newly available data.
+
+#### Alternative considered
+
+I could have cached the previous prediction result and returned it for repeated requests.
+
+#### Why I rejected the alternative
+
+Caching the previous result would make the API less useful when new telemetry arrives. The purpose of `/run` is to explicitly regenerate the ranking from the current data.
+
+Deterministic ranking ensures that repeated runs on unchanged data do not introduce random differences.
+
+### Decision 5: Keep previous runtime output until a new run succeeds
+
+#### What I chose
+
+Runtime predictions are generated into a temporary file first. The existing
+`runtime_predictions.csv` is replaced only after the new output has been
+successfully generated and written.
+
+If the generation fails before the replacement step, the previously available
+runtime output is not partially overwritten.
+
+#### Alternative considered
+
+I could have deleted or truncated the previous output before starting generation.
+
+#### Why I rejected the alternative
+
+A failed prediction run should not unnecessarily destroy the last successfully
+generated result.
+
+The temporary-file and atomic replacement approach provides a simple failure
+boundary without introducing a larger persistence system.
+
+### Decision 6: Support new data without restarting the API
 
 #### What I chose
 
@@ -205,7 +349,7 @@ That approach would produce stale rankings when a new month arrived and would fa
 
 I tested this behaviour by starting the API, adding a new monthly telemetry partition, calling `/run` without restarting the API, and verifying that the prediction period and generated predictions changed.
 
-### Decision 5: Validate telemetry before ranking
+### Decision 7: Validate telemetry before ranking
 
 #### What I chose
 
@@ -219,7 +363,7 @@ I could have allowed the ranking code to fail naturally when it encountered malf
 
 Uncontrolled failures make API errors difficult to understand. Explicit validation fails early with a meaningful message instead of silently producing an incorrect result.
 
-### Decision 6: Handle invalid requests explicitly
+### Decision 8: Handle invalid requests explicitly
 
 #### What I chose
 
@@ -233,7 +377,7 @@ I could have allowed Python exceptions to propagate directly to the client.
 
 An API should expose a predictable contract. Clear errors make the service easier to use and prevent invalid input from reaching deeper layers.
 
-### Decision 7: Handle unknown gateways explicitly
+### Decision 9: Handle unknown gateways explicitly
 
 #### What I chose
 
@@ -247,7 +391,7 @@ I could have returned an empty response or allowed an internal exception to prop
 
 An unknown gateway is an expected API input case, not an application crash. A deliberate error gives the caller a clear explanation.
 
-### Decision 8: Use atomic runtime output
+### Decision 10: Use atomic runtime output
 
 #### What I chose
 
@@ -268,7 +412,7 @@ I could have written directly to `runtime_predictions.csv`.
 
 If generation or writing failed halfway through, direct replacement could leave an incomplete output. The temporary-file approach keeps the existing result available until the new file is complete.
 
-### Decision 9: Use small synthetic test fixtures
+### Decision 11: Use small synthetic test fixtures
 
 #### What I chose
 

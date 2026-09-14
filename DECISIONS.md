@@ -477,6 +477,47 @@ I could have made every test depend on the complete challenge dataset.
 
 The challenge dataset is large and is not committed to the repository. Synthetic fixtures make tests faster, deterministic, easier to understand, and runnable on a clean machine.
 
+### Decision 12: Treat `/run` as a weekly batch operation
+
+#### What I measured
+
+On the challenge dataset and my development machine, a complete `/run`
+operation took approximately **3.25 seconds**.
+
+The measurement included the HTTP request to `/run` and the complete
+prediction generation performed by the service.
+
+#### What I chose
+
+I treat `/run` as a weekly batch operation rather than a latency-sensitive
+interactive operation.
+
+The expected operating pattern is one prediction run per week, with only a
+small number of API requests from the operations team.
+
+#### Alternative considered
+
+I could have optimized the implementation for sub-second API responses or
+introduced persistent caching of processed telemetry.
+
+#### Why I rejected the alternative
+
+The measured runtime is already only a few seconds for the supplied dataset,
+while the expected operational frequency is approximately one run per week.
+
+Introducing caching or additional infrastructure would increase complexity
+without addressing a demonstrated performance problem.
+
+#### Consequence
+
+The current implementation prioritizes correctness, fresh data loading,
+deterministic results, and simple operation over aggressive latency
+optimization.
+
+The measured runtime is environment-dependent, so 3.25 seconds should be
+treated as an observed reference measurement rather than a guaranteed
+performance target.
+
 ## Testing and Regression Coverage
 
 The implementation includes tests for:

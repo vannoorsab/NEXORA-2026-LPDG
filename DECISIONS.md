@@ -216,6 +216,57 @@ This also avoids presenting the 3-Sigma score as a calibrated failure
 probability. The score is used for ordering and prioritisation, not as
 a guarantee that a gateway will fail.
 
+### Decision 9: Normalize gateway identifiers before joining datasets
+
+#### What I found
+
+The telemetry and field-visit datasets used different formatting for some
+gateway identifiers.
+
+For example:
+
+- Field-visit data: `06:B1:62:DC:93:E3`
+- Telemetry data: `06B162DC93E3`
+
+These represent the same gateway but cannot be matched reliably as raw
+strings.
+
+During the data-quality analysis, I found that normalizing the identifiers
+allowed the datasets to be matched correctly.
+
+#### What I chose
+
+I normalize gateway identifiers by removing formatting characters such as
+colons and comparing the resulting identifier consistently across datasets.
+
+This normalization is applied only to the identifier representation. It does
+not modify telemetry measurements or field-visit outcomes.
+
+After normalization, all 147 unique gateways associated with confirmed/fixed
+field visits could be matched to telemetry records.
+
+#### Alternative considered
+
+I could have joined the datasets using the raw gateway-ID strings.
+
+#### Why I rejected the alternative
+
+A raw string join would treat differently formatted representations of the same
+physical gateway as different gateways.
+
+That would create false unmatched records and could incorrectly reduce the
+historical evidence available for analysis.
+
+I therefore chose explicit identifier normalization before cross-dataset
+matching.
+
+#### Consequence
+
+Normalization improves dataset linkage, but it assumes that the normalized
+identifier is the intended canonical gateway identifier. I therefore use it
+only for matching identifiers and do not infer missing gateway identity from
+other fields.
+
 ## Part 2: Software Development
 
 ### Selected area

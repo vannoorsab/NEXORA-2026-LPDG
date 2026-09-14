@@ -158,3 +158,28 @@ def run_predictions():
             status_code=500,
             detail=f"Prediction run failed: {exc}",
         ) from exc
+
+@app.get("/weeks")
+def get_available_weeks():
+    import pandas as pd
+
+    if not prediction_service.output_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="predictions.csv does not exist",
+        )
+
+    frame = pd.read_csv(prediction_service.output_path)
+
+    weeks = sorted(
+        frame["week_start"]
+        .dropna()
+        .astype(str)
+        .unique()
+        .tolist()
+    )
+
+    return {
+        "weeks": weeks,
+        "count": len(weeks),
+    }

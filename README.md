@@ -931,23 +931,7 @@ The challenge data is intentionally not committed to the repository.
 
 ## 30. Demo Recording
 
-The final 6–8 minute recording demonstrates the completed implementation.
 
-The recording covers:
-
-the Part 1 predictions.csv;
-submission validation;
-starting the local API;
-retrieving weekly predictions;
-explaining a gateway ranking;
-running /run;
-demonstrating dynamic telemetry reload;
-running the automated test suite; and
-demonstrating the Software Development implementation.
-
-Demo Recording:
-
-Add the final externally accessible recording link here.
 
 ## 31. Final Result
 

@@ -206,10 +206,7 @@ NEXORA-2026-LPDG/
 └── README.md
 ```
 
-The challenge dataset is intentionally excluded from Git.
 
-The application expects the challenge data to be available locally under
-the top-level data/ directory.
 
 ## 5. Challenge Data
 
